@@ -166,6 +166,7 @@ We know what the data is going to look like now, so let’s build this thing!
 
 ### Build
 
+## Service
 
 We will start by building out our Service using TDD. Once we get our tests passing, we can start to refactor out to a Model, then Controllers & Views.
 
@@ -224,7 +225,7 @@ RSpec.describe 'NREL Service' do
 
       expect(stations.count).to eq(10)
       expect(stations.class).to eq(Array)
-      
+
       station = stations.first
 
       expect(stations.class).to be(Hash)
@@ -310,7 +311,7 @@ Great! Now we have the info we need, BUT the format doesn’t look quite right f
 pry(#<NrelService>) > JSON.parse(response.body)
 ```
 
-Now it looks like we almost have what we need. `JSON.parse(response.body)` give us back all of the results, but it also includes information about all of the results. How can we only get back the fuel_stations? We can access the data within the key `fuel_stations`. Notice that all of the keys are strings. Let’s say we want these to be symbols instead to reduce the typing of quotes. We can add `symbolize_names: true` to our parse method to convert all of the keys to symbols. 
+Now it looks like we almost have what we need. `JSON.parse(response.body)` give us back all of the results, but it also includes information about all of the results. How can we only get back the fuel_stations? We can access the data within the key `fuel_stations`. Notice that all of the keys are strings. Let’s say we want these to be symbols instead to reduce the typing of quotes. We can add `symbolize_names: true` to our parse method to convert all of the keys to symbols.
 
 ```sh
 pry(#<NrelService>) > JSON.parse(response.body, symbolize_names: true)[:fuel_stations]
@@ -330,9 +331,9 @@ end
 
 Run your tests. Heyoooo! Our tests pass! Now you can do a happy dance! ![](http://i.giphy.com/l3V0lsGtTMSB5YNgc.gif)
 
-We can’t stop here though. Our code is quite ugly, but more importantly, if we returned this in the view, it would just be an array of hashes and we don’t want that. Ultimately, what we want to be doing is to be returning station objects, so we can call methods on the object to get the data we want.  Before pulling out code into a model though, let’s refactor our service. 
+We can’t stop here though.
 
-Right now, we have everything in the `get_stations` method, and our api call is all on one line. Let’s refactor a bit. First, we should take a look at the Faraday [docs](https://github.com/lostisland/faraday) to see if there is a better way to write our code. If you look under the Basic Usage section, you can see that we can make a base connection using the base url.  This allows us to create multiple methods with different endpoints in the future. Once you have this connection, you can see that there are two ways to pass parameters. We can do it by giving the connection object a hash, or by using block notation.  Let’s start by creating a base connection in our intialize method and then refactoring our `get_stations` method to use the connection. 
+Right now, we have everything in the `get_stations` method, and our api call is all on one line. Let’s refactor a bit. First, we should take a look at the Faraday [docs](https://github.com/lostisland/faraday) to see if there is a better way to write our code. If you look under the Basic Usage section, you can see that we can make a base connection using the base url.  This allows us to create multiple methods with different endpoints in the future. Once you have this connection, you can see that there are two ways to pass parameters. We can do it by giving the connection object a hash, or by using block notation.  Let’s start by creating a base connection in our intialize method and then refactoring our `get_stations` method to use the connection.
 
 Here are the steps:
 
@@ -352,7 +353,7 @@ class NrelService
       faraday.adapter Faraday.default_adapter
     end
   end
- 
+
   def get_stations(zip)
     response = connection.get("/api/alt-fuel-stations/v1/nearest.json?location=#{zip}&api_key=[your_api_key_here]&fuel_types=ELEC,LPG&radius=5&limit=10")
     JSON.parse(response.body, symbolize_names: true)[:fuel_stations]
@@ -377,7 +378,7 @@ class NrelService
       faraday.adapter Faraday.default_adapter
     end
   end
- 
+
   def get_stations(zip)
     response = connection.get('/api/alt-fuel-stations/v1/nearest.json') do |request|
       request.params[‘location’]='80203'
@@ -394,7 +395,163 @@ class NrelService
 end
 ```
 
-Your tests should still pass. If they aren’t, make sure you don’t have any typos. 
+Your tests should still pass. If they aren’t, make sure you don’t have any typos.
+
+
+## Model (In this case a PORO)
+
+While our service is now well-refactored, we don't actually want to pass this
+data into our view. If we returned this in the view, it would just be an array
+of hashes and we don’t want that. Ultimately, what we want to be doing is to be
+returning station objects, so we can call methods on the object to get the data
+we want. We can create a PORO that would take the data from the service, map
+over the array, and create a new instance of a Station for each of the hashes.
+
+Let's start by writing a test. Our test will be similar to to the service,
+however, this will be testing that the data we want our methods on an object,
+instead of keys in a hash.
+
+```sh
+$ mkdir spec/models
+$ touch spec/models/stations_spec.rb
+```
+
+# spec/models/stations_spec.rb
+
+```rb
+require 'rails_helper'
+
+RSpec.describe "Station PORO" do
+  it 'can return a station with attributes' do
+    stations = Station.get_stations("80203")
+
+    station = stations.first
+
+    expect(station.class).to be(Station)
+    expect(station).to respond_to(:station_name)
+    expect(station).to respond_to(:access_days_time)
+    expect(station).to respond_to(:fuel_type_code)
+    expect(station).to respond_to(:city)
+    expect(station).to respond_to(:state)
+    expect(station).to respond_to(:street_address)
+    expect(station).to respond_to(:zip)
+    expect(station).to respond_to(:distance)
+  end
+end
+```
+
+Run your tests and you should see an error `unitialized constant Station`. Let's
+create our Station PORO.
+
+```sh
+$ touch app/models/station.rb
+```
+
+
+```ruby
+class Station
+end
+```
+
+Notice that this class does NOT inherit from ActiveRecord because it is a PORO.
+
+Run your test and you should get an error `undefined method 'get_stations' for
+Station:Class`. Let's add this method.
+
+```ruby
+class Station
+  def self.get_stations(zip)
+  end
+end
+```
+
+Now if we run our tests we should get an error `undefined method 'first' for
+nil:NilClass`. Let's have our PORO hit the service in order to get back the
+stations.
+
+
+```ruby
+class Station
+  def self.get_stations(zip)
+    service = NrelService.new
+    service.get_stations(zip)
+  end
+end
+```
+
+If we run our tests, we should get an error that the station class is not
+Station, and is a hash. This is because we are still not doing anything with the
+array of hashes. Let's take the array, map over it and create an instance
+of the Station, and pass in the hash in order to create attributes on the
+object.
+
+
+```ruby
+class Station
+  def self.get_stations(zip)
+    service = NrelService.new
+    service.get_stations(zip).map do |raw_station|
+      Station.new(raw_station)
+    end
+  end
+end
+```
+
+Now that we are creating a new instance of Station and passing in data,
+we also need to add an initialize method in order to create attributes on the
+object.
+
+
+```ruby
+class Station
+  attr_reader :station_name, :access_days_time, :fuel_type, :city, :state, :street_address, :zip, :distance
+
+  def initialize(attributes)
+    @station_name = attributes[:station_name]
+    @access_days_time = attributes[:access_days_time]
+    @fuel_type = attributes[:fult_type_code]
+    @city = attributes[:city]
+    @state = attributes[:state]
+    @street_address = attributes[:street_address]
+    @zip = attributes[:zip]
+    @distance = attributes[:distance]
+  end
+
+  def self.get_stations(zip)
+    service = NrelService.new
+    service.get_stations(zip).map do |raw_station|
+      Station.new(raw_station)
+    end
+  end
+end
+```
+
+Now our tests are passing again! Hooray. We are close, but if we were to spin up localhost, we
+still don't have anything showing in our views. Let's now write some code for our Controller
+and View. But first, let's write a test.
+
+```sh
+$ mkdir spec/features/
+$ touch spec/features/user_can_see_stations_spec.rb
+```
+
+# spec/features/user_can_see_stations_spec.rb
+
+```ruby
+require 'rails_helper'
+
+RSpec.describe 'User' do
+  it 'can view stations' do
+    visit '/'
+
+    fill_in 'Search by zip', with:'80203'
+    click_on 'Submit'
+
+    expect(page).to have_selector("#station", count: 10)
+  end
+end
+```
+
 
 ### Video
 
@@ -416,4 +573,3 @@ Your tests should still pass. If they aren’t, make sure you don’t have any t
 * [Programmable Web](http://www.programmableweb.com/)
 * [MashApe](https://www.mashape.com/)
 * What is a service? [Check out Ben Lewis' Post on Services]
-
