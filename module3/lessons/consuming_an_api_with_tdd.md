@@ -184,11 +184,11 @@ In order to hit the api within our app, we are going to be using the [Faraday](h
 In your Gemfile add rspec
 
 ```rb
-gem ‘faraday’
+gem 'faraday'
 
 group :development, :test do
-  gem ‘rspec-rails`
-  gem ‘pry'
+  gem 'rspec-rails'
+  gem 'pry'
 end
 ```
 
@@ -217,10 +217,10 @@ $ touch spec/services/nrel_service_spec.rb
 ```rb
 require 'rails_helper'
 
-RSpec.describe ‘NREL Service’ do
-  it "can return a list of fuel stations with a specific zip code" do
+RSpec.describe 'NREL Service' do
+  it 'can return a list of fuel stations with a specific zip code' do
       service = NrelService.new
-      stations = service.get_stations(“80203”)
+      stations = service.get_stations('80203')
 
       expect(stations.count).to eq(10)
       expect(stations.class).to eq(Array)
@@ -256,7 +256,7 @@ class NrelService
 end
 ```
 
-Run your tests and you should get an error `undefined method ‘get_stations`. Let set up our method.
+Run your tests and you should get an error `undefined method 'get_stations'`. Let set up our method.
 
 # app/services/nrel_service.rb
 
@@ -295,25 +295,25 @@ end
 Now when you run your tests, it should hit your pry. Let’s look at the response.
 
 ```sh
-pry(#<NrelService>)> response
+pry(#<NrelService>) > response
 ```
 
 We can see that the entire response is sent back to us, which is great, but what is it that we actually want? We just need what is in the body of the response. We can access this by calling `body` on the response.
 
 ```sh
-pry(#<NrelService>)> response.body
+pry(#<NrelService>) > response.body
 ```
 
 Great! Now we have the info we need, BUT the format doesn’t look quite right for us to be able to use this in our code. What format is this in? Hint: We specified this in our url. JSON! Let’s parse the JSON in order to get back the hash we want. We can do this using the `JSON.parse()` method.
 
 ```sh
-pry(#<NrelService>)> JSON.parse(response.body)
+pry(#<NrelService>) > JSON.parse(response.body)
 ```
 
 Now it looks like we almost have what we need. `JSON.parse(response.body)` give us back all of the results, but it also includes information about all of the results. How can we only get back the fuel_stations? We can access the data within the key `fuel_stations`. Notice that all of the keys are strings. Let’s say we want these to be symbols instead to reduce the typing of quotes. We can add `symbolize_names: true` to our parse method to convert all of the keys to symbols. 
 
 ```sh
-pry(#<NrelService>)> JSON.parse(response.body, symbolize_names: true)[:fuel_stations]
+pry(#<NrelService>) > JSON.parse(response.body, symbolize_names: true)[:fuel_stations]
 ```
 
 That looks like it’s returning what we want. Let’s update our code and run our tests again.
