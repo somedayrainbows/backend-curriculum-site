@@ -114,7 +114,7 @@ bundle exec rake db:seed
 Create your controller
 
   - `rails g controller api/v1/orders index show`
-  - Create routes.
+  - Update routes.
   - Set `index` and `show` methods to render appropriate json
 
 ## Responses
@@ -134,7 +134,7 @@ JSON responses should contain the following keys from the following endpoints:
   {
     "id": 1,
     "name": "Hammer",
-    "price": 11
+    "description": "Chuck Norris fact"
   },
   {...}
 ]
@@ -146,7 +146,7 @@ JSON responses should contain the following keys from the following endpoints:
 {
   "id": 1,
   "name": "Hammer",
-  "price": 11
+  "description": "Chuck Norris fact"
   "num_orders": 5,
   "orders": [
     {"order_number": "12345ABC"},
