@@ -272,32 +272,13 @@ class Legislator
 end
 ```
 
-This is dynamic data we are getting from a 3rd party API and there's no need to store it in our database - we don't want to be in charge of data that we can easliy query for. But we still want to return Legislator objects from the `Legislator#find_by` method. To achieve this, we can use [OpenStruct](http://ruby-doc.org/stdlib-2.0.0/libdoc/ostruct/rdoc/OpenStruct.html).
+This is dynamic data we are getting from a 3rd party API and there's no need to store it in our database - we don't want to be in charge of data that we can easliy query for. But we still want to return Legislator objects from the `Legislator#find_by` method.
 
-OpenStruct is a data structure very similar to a hash but we can define methods on the instance. For example:
-
-```sh
-[1] pry(main)> require 'ostruct'
-=> true
-[2] pry(main)> person = OpenStruct.new
-=> #<OpenStruct>
-[3] pry(main)> person.name = "Lovisa"
-=> "Lovisa"
-[4] pry(main)> person.age = 24
-=> 24
-[5] pry(main)> person
-=> #<OpenStruct name="Lovisa", age=24>
-[6] pry(main)> person.class
-=> OpenStruct
-```
-
-First, let's make the class inherit from OpenStruct. This enables us to call `Legislator.new({name: "Lovisa"})`, which will return a `Legislator` object with one property set; `name: "Lovisa"`.
-
-Then, we need to create an instance of the SunlightService so we can trigger API requests from this model.
+We need to create an instance of the SunlightService so we can trigger API requests from this model.
 
 ```rb
 # app/models/legislator.rb
-class Legislator < OpenStruct
+class Legislator
   attr_reader :service
 
   def self.service
@@ -319,6 +300,8 @@ def self.find_by(criteria)
   end
 end
 ```
+
+You will now need to define the attributes that come in to the initialize method. 
 
 Run the tests... and it should all be passing.
 
