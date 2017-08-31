@@ -208,7 +208,7 @@ If we were to run our tests again, we should get the same error because we haven
 
 ```rb
 # config/routes.rb
-  namespace :api do
+  namespace :api, defaults: { format: :json } do
     namespace :v1 do
       resources :items, only: [:index]
     end
